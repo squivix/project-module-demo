@@ -1,0 +1,11 @@
+data
+libs
+*.pt
+*.pickle
+*.jpeg
+*.png
+__pycache__
+.idea
+temp
+venv
+*.Identifier

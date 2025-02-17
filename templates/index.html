@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>SVS Slide List</title>
+</head>
+<body>
+    <h1>Available Slides</h1>
+    <ul>
+        {% for slide in slides %}
+            <li><a href="{{ url_for('view_slide', slide_name=slide) }}">{{ slide }}</a></li>
+        {% endfor %}
+    </ul>
+</body>
+</html>
