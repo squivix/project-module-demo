@@ -100,5 +100,4 @@ def process_slide(slide_path):
                         'boxes': boxes_data,
                         "confidence": 0.0,
                     }
-
                     yield f"data: {json.dumps(response_data)}\n\n"

@@ -1,12 +1,17 @@
-from flask import Flask, render_template, request, send_file, Response
-import os
 import io
+import os
+from threading import Lock
+
 import large_image
-import object_detection.main as object_detection
+from flask import Flask, render_template, request, send_file, Response, jsonify
+
 import classification.main as classification
+import object_detection.main as object_detection
 
 app = Flask(__name__)
 slides_root_dir = "data/whole-slides/gut"
+active_jobs = {}
+lock = Lock()
 
 
 def get_slide_path(slide_name):
@@ -30,7 +35,7 @@ def view_slide(slide_name):
     tile_source = large_image.open(slide_path)
     metadata = tile_source.getMetadata()
     print(metadata)
-    return render_template('viewer.html', slide_name=slide_name,width=metadata["sizeX"],height=metadata["sizeY"],tileSize=metadata["tileWidth"], **metadata)
+    return render_template('viewer.html', slide_name=slide_name, width=metadata["sizeX"], height=metadata["sizeY"], tileSize=metadata["tileWidth"], **metadata)
 
 
 @app.route('/tile/<slide_name>')
@@ -46,19 +51,56 @@ def get_tile(slide_name):
     return send_file(io.BytesIO(tile_image), mimetype="image/png")
 
 
+# @app.route('/stream/<method>/<slide_name>')
+# def stream_results(method, slide_name):
+#     """Streams results from object detection or classification."""
+#     slide_path = get_slide_path(slide_name)
+#     if not os.path.exists(slide_path):
+#         return "Slide not found", 404
+#
+#     if method == "object-detection":
+#         return Response(object_detection.process_slide(slide_path), mimetype='text/event-stream')
+#     elif method == "classification":
+#         return Response(classification.process_slide(slide_path), mimetype='text/event-stream')
+#     else:
+#         return "Invalid method", 400
+
+
+method_map = {
+    "object-detection": object_detection.process_slide,
+    "classification": classification.process_slide,
+}
+
+
 @app.route('/stream/<method>/<slide_name>')
 def stream_results(method, slide_name):
-    """Streams results from object detection or classification."""
     slide_path = get_slide_path(slide_name)
     if not os.path.exists(slide_path):
         return "Slide not found", 404
-
-    if method == "object-detection":
-        return Response(object_detection.process_slide(slide_path), mimetype='text/event-stream')
-    elif method == "classification":
-        return Response(classification.process_slide(slide_path), mimetype='text/event-stream')
-    else:
+    if method not in ["object-detection", "classification"]:
         return "Invalid method", 400
+
+    client_id = request.remote_addr  # Using client IP as identifier; consider more reliable methods
+    job_key = (client_id, method, slide_name)
+
+    with lock:
+        if job_key in active_jobs:
+            return jsonify({"error": "Job already in progress for this client"}), 429  # 429 Too Many Requests
+        else:
+            active_jobs[job_key] = True
+
+    def generate():
+        try:
+            for data in method_map[method](slide_path):
+                yield data
+        finally:
+            with lock:
+                active_jobs.pop(job_key, None)
+    # if method == "object-detection":
+    #     return Response(object_detection.process_slide(slide_path), mimetype='text/event-stream')
+    # elif method == "classification":
+    #     return Response(classification.process_slide(slide_path), mimetype='text/event-stream')
+    return Response(generate(), mimetype='text/event-stream')
 
 
 if __name__ == '__main__':

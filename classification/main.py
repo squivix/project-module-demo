@@ -64,11 +64,11 @@ def process_slide(slide_path):
     classifier.load_state_dict(state_dict)
     model = PretrainedModelClass(model=classifier).to(device)
     test_loader = DataLoader(dataset, shuffle=False, batch_size=batch_size)
-    model.eval()
 
     all_y_probs = []
 
     with torch.no_grad():
+        model.eval()
         test_batches = iter(test_loader)
 
         for i, batch in enumerate(tqdm(test_batches, desc=f"Classifying")):
@@ -76,7 +76,6 @@ def process_slide(slide_path):
             batch_indexes = batch[2].to(device)
             batch_y_probs = model.forward(batch_x)
             all_y_probs.append(batch_y_probs.cpu().detach().numpy())
-            # {slide_name}_{x_min}_{y_min}_{w}_{h}.{extension}
             for i in range(len(batch_indexes)):
                 file_path = dataset.get_item_file_path(batch_indexes[i])
                 confidence = batch_y_probs[i].item()
