@@ -5,6 +5,7 @@ let classificationProgress = null;
 let objectDetectionProgress = null;
 
 const TAB_ENUM = {OBJECT_DETECTION: "object-detection", CLASSIFICATION: "classification"}
+const TAB_TO_TITLE = {[TAB_ENUM.OBJECT_DETECTION]: "Object Detection", [TAB_ENUM.CLASSIFICATION]: "Classification"}
 let currentTab = TAB_ENUM.OBJECT_DETECTION;
 let RESULTS_TO_SHOW = 5; // Number of results to render initially
 
@@ -136,6 +137,7 @@ function renderResults() {
 
 function changeTab(newTab) {
     currentTab = newTab;
+    document.querySelector("#results-title").textContent = `${TAB_TO_TITLE[currentTab]} Results`
     clearOverlays();
     renderResults();
     let showProgress = getTabData().progress == null;
