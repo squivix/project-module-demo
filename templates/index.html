@@ -1,14 +1,61 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SVS Slide List</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 20px;
+            padding: 0;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 15px;
+        }
+
+        ul {
+            list-style-type: none;
+            padding: 0;
+            margin: 0;
+            max-width: 600px;
+            background: #fff;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        li {
+            border-bottom: 1px solid #ddd;
+        }
+
+        li:last-child {
+            border-bottom: none;
+        }
+
+        a {
+            display: block;
+            padding: 12px 15px;
+            text-decoration: none;
+            color: #007bff;
+            font-size: 16px;
+            transition: background 0.3s ease-in-out;
+        }
+
+        a:hover {
+            background: #007bff;
+            color: #fff;
+        }
+    </style>
 </head>
 <body>
-    <h1>Available Slides</h1>
-    <ul>
-        {% for slide in slides %}
-            <li><a href="{{ url_for('view_slide', slide_name=slide) }}">{{ slide }}</a></li>
-        {% endfor %}
-    </ul>
+<h1>Test Slides</h1>
+<ul>
+    {% for slide in slides %}
+        <li><a href="{{ url_for('view_slide', slide_name=slide) }}">{{ slide }}</a></li>
+    {% endfor %}
+</ul>
 </body>
 </html>

@@ -21,7 +21,7 @@ def get_slide_path(slide_name):
 @app.route('/')
 def index():
     """Home page listing all available slides."""
-    slides = [f[:-4] for f in os.listdir(slides_root_dir) if f.endswith(".svs")]
+    slides = sorted([f[:-4] for f in os.listdir(slides_root_dir) if f.endswith(".svs")])
     return render_template('index.html', slides=slides)
 
 
@@ -81,6 +81,7 @@ def stream_results(method, slide_name):
         finally:
             with lock:
                 active_jobs.pop(job_key, None)
+
     return Response(generate(), mimetype='text/event-stream')
 
 
