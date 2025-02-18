@@ -237,6 +237,12 @@
             justify-content: center;
             flex-grow: 1;
         }
+
+        #loading-message {
+            height: 100%;
+            display: grid;
+            place-items: center;
+        }
     </style>
 </head>
 <body>
@@ -255,6 +261,9 @@
                 <div id="empty-message"><p>No results yet...</p>
                     <button id="classification" style="display: none">Start Classification</button>
                     <button id="object-detection" style="display: none">Start Object Detection</button>
+                </div>
+                <div id="loading-message">
+                    <img src="{{ url_for('static', filename='icons/spinner.svg') }}" width="42px" height="42px" alt="loading spinner">
                 </div>
             </div>
             <div class="tabs">

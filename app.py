@@ -51,21 +51,6 @@ def get_tile(slide_name):
     return send_file(io.BytesIO(tile_image), mimetype="image/png")
 
 
-# @app.route('/stream/<method>/<slide_name>')
-# def stream_results(method, slide_name):
-#     """Streams results from object detection or classification."""
-#     slide_path = get_slide_path(slide_name)
-#     if not os.path.exists(slide_path):
-#         return "Slide not found", 404
-#
-#     if method == "object-detection":
-#         return Response(object_detection.process_slide(slide_path), mimetype='text/event-stream')
-#     elif method == "classification":
-#         return Response(classification.process_slide(slide_path), mimetype='text/event-stream')
-#     else:
-#         return "Invalid method", 400
-
-
 method_map = {
     "object-detection": object_detection.process_slide,
     "classification": classification.process_slide,
@@ -96,12 +81,8 @@ def stream_results(method, slide_name):
         finally:
             with lock:
                 active_jobs.pop(job_key, None)
-    # if method == "object-detection":
-    #     return Response(object_detection.process_slide(slide_path), mimetype='text/event-stream')
-    # elif method == "classification":
-    #     return Response(classification.process_slide(slide_path), mimetype='text/event-stream')
     return Response(generate(), mimetype='text/event-stream')
 
 
 if __name__ == '__main__':
-    app.run(debug=True, threaded=True)
+    app.run(host='0.0.0.0', debug=True, threaded=True)

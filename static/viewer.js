@@ -120,18 +120,26 @@ function renderResults() {
     const container = document.getElementById("results-container");
     container.querySelectorAll(".result-entry").forEach(n => n.remove())
     const results = getTabData().results;
-    const emptyMessage = document.getElementById("empty-message");
 
+    const emptyMessage = document.getElementById("empty-message");
+    const loadingMessage = document.getElementById("loading-message");
     if (results.length === 0) {
-        emptyMessage.style.display = "flex";
-        if (currentTab === TAB_ENUM.CLASSIFICATION) {
-            emptyMessage.querySelector("#object-detection").style.display = "none"
-            emptyMessage.querySelector("#classification").style.display = "block"
+        if (getTabData().progress != null) {
+            emptyMessage.style.display = "none";
+            loadingMessage.style.display = "grid";
         } else {
-            emptyMessage.querySelector("#classification").style.display = "none"
-            emptyMessage.querySelector("#object-detection").style.display = "block"
+            emptyMessage.style.display = "flex";
+            loadingMessage.style.display = "none";
+            if (currentTab === TAB_ENUM.CLASSIFICATION) {
+                emptyMessage.querySelector("#object-detection").style.display = "none"
+                emptyMessage.querySelector("#classification").style.display = "block"
+            } else {
+                emptyMessage.querySelector("#classification").style.display = "none"
+                emptyMessage.querySelector("#object-detection").style.display = "block"
+            }
         }
     } else {
+        loadingMessage.style.display = "none";
         emptyMessage.style.display = "none";
         results.forEach((data, index) => {
             if (!data.renderedOverlayRect)
@@ -150,6 +158,8 @@ function renderResults() {
 
 function startStreaming(method, slideName) {
     changeTab(method);
+    updateProgress(method, {stepProgress: 0.0})
+    renderResults()
     const eventSource = new EventSource(`/stream/${method}/${slideName}`);
     eventSource.onmessage = event => handleStreamData(event, method);
     eventSource.onerror = () => eventSource.close();
@@ -166,20 +176,20 @@ function updateProgress(method, progressData) {
         objectDetectionProgress = progressData;
     else
         classificationProgress = progressData;
+    if (progressData) {
+        const progressBar = document.getElementById("progress-bar");
+        const progressText = document.getElementById("progress-text");
+        const currentStep = progressData.currentStep ?? 0;
+        const totalSteps = progressData.totalStep ?? "?";
+        const stepName = progressData.stepName ?? "Pending...";
+        const stepProgress = progressData.stepProgress;
 
-    const progressBar = document.getElementById("progress-bar");
-    const progressText = document.getElementById("progress-text");
-    const currentStep = progressData.currentStep;
-    const totalSteps = progressData.totalStep;
-    const stepName = progressData.stepName;
-    const stepProgress = progressData.stepProgress;
-
-    const progressPercent = Math.round(stepProgress * 100);
-    // Update the UI
-    progressBar.style.width = progressPercent + "%";
-    progressBar.textContent = progressPercent + "%";
-    progressText.textContent = `(${currentStep}/${totalSteps}) ${stepName}: (${progressPercent}%)`;
-
+        const progressPercent = Math.round(stepProgress * 100);
+        // Update the UI
+        progressBar.style.width = progressPercent + "%";
+        progressBar.textContent = progressPercent + "%";
+        progressText.textContent = `(${currentStep}/${totalSteps}) ${stepName}: (${progressPercent}%)`;
+    }
     let showProgress = getTabData().progress == null;
     const progressContainer = document.getElementById("progress-container");
     progressContainer.style.display = showProgress ? "none" : "flex";
@@ -193,8 +203,8 @@ function handleStreamData(event, method) {
             results.push({...streamData.region});
             results.sort((a, b) => b.confidence - a.confidence);
         }
-        if (streamData.progress)
-            updateProgress(method, streamData.progress)
+        // if (streamData.progress)
+        updateProgress(method, streamData.progress)
         renderResults();
     } catch (error) {
         console.error("Error processing streamed data:", error);
