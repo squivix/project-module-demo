@@ -24,9 +24,6 @@
         }
 
         .results-container {
-            position: fixed;
-            right: 10px;
-            top: 50px;
             width: 300px;
             height: 80vh;
             overflow-y: auto;
@@ -49,17 +46,61 @@
         #toggle-results {
             margin-top: 10px;
         }
+
+        #progress-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            column-gap: 1rem;
+        }
+
+        #progress-container p {
+            flex: 1;
+            white-space: nowrap;
+            vertical-align: center;
+        }
+
+        #progress-bar-background {
+            width: 100%;
+            background-color: #ddd;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+
+        #progress-bar {
+            padding: 0 0.5rem;
+            height: 25px;
+            width: 0;
+            background-color: #4caf50;
+            text-align: center;
+            line-height: 25px;
+            color: white;
+            font-weight: bold;
+        }
+
+        main {
+            display: flex;
+        }
     </style>
 </head>
 <body>
 <h1>Viewing Slide: {{ slide_name }}</h1>
 <div>
     <a href="/">Back to Slide List</a>
+
     <button id="object-detection">Start Object Detection</button>
     <button id="classification">Start Classification</button>
     <button id="toggle-results">Toggle Results</button>
+    <div id="progress-container" style="display: none">
+        <p id="progress-text">Step: Pending...</p>
+        <div id="progress-bar-background">
+            <div id="progress-bar">0%</div>
+        </div>
+    </div>
 </div>
-<div id="openseadragon"></div>
-<div id="results-container" class="results-container"></div>
+<main>
+    <div id="openseadragon"></div>
+    <div id="results-container" class="results-container"></div>
+</main>
 </body>
 </html>

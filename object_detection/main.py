@@ -66,7 +66,7 @@ def process_slide(slide_path):
                 valid_boxes = []
                 boxes_data = []
                 img_width, img_height = img_pil.size
-
+                confidence = 0.0
                 for box in results[0].boxes:
                     x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
                     width = (x2 - x1) / img_width
@@ -82,6 +82,7 @@ def process_slide(slide_path):
                             'conf': float(box.conf[0]),
                             'cls': int(box.cls[0])
                         })
+                        confidence = max(confidence, box.conf[0].item())
 
                 if valid_boxes:
                     draw_img = img_pil.copy()
@@ -95,9 +96,11 @@ def process_slide(slide_path):
                     draw_img.save(buffered, format="PNG")
                     img_str = base64.b64encode(buffered.getvalue()).decode()
                     response_data = {
-                        'image': img_str,
-                        'location': list(location[::-1]) + [patch_size, patch_size],
-                        'boxes': boxes_data,
-                        "confidence": 0.0,
+                        "region": {
+                            'image': img_str,
+                            'location': list(location[::-1]) + [patch_size, patch_size],
+                            'boxes': boxes_data,
+                            "confidence": confidence,
+                        }
                     }
                     yield f"data: {json.dumps(response_data)}\n\n"

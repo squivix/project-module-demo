@@ -69,23 +69,38 @@ def process_slide(slide_path):
 
     with torch.no_grad():
         model.eval()
-        test_batches = iter(test_loader)
-
-        for i, batch in enumerate(tqdm(test_batches, desc=f"Classifying")):
+        for i, batch in enumerate(tqdm(test_loader, desc=f"Classifying")):
             batch_x = batch[0].to(device)
             batch_indexes = batch[2].to(device)
             batch_y_probs = model.forward(batch_x)
             all_y_probs.append(batch_y_probs.cpu().detach().numpy())
-            for i in range(len(batch_indexes)):
-                file_path = dataset.get_item_file_path(batch_indexes[i])
-                confidence = batch_y_probs[i].item()
+            for j in range(len(batch_indexes)):
+                file_path = dataset.get_item_file_path(batch_indexes[j])
+                confidence = batch_y_probs[j].item()
                 if confidence < threshold:
                     continue
                 patch_bbox = Path(file_path).stem.split("_")[1:]
-                original_image, _ = dataset.get_item_untransformed(batch_indexes[i])
+                original_image, _ = dataset.get_item_untransformed(batch_indexes[j])
                 response_data = {
-                    'image': tensor_to_base64_png(original_image),
-                    'location': patch_bbox,
-                    "confidence": confidence
+                    "region": {
+                        'image': tensor_to_base64_png(original_image),
+                        'location': patch_bbox,
+                        "confidence": confidence,
+                    },
+                    "progress": {
+                        "currentStep": 2,
+                        "totalStep": 2,
+                        "stepName": "Classifying",
+                        "stepProgress": i / len(test_loader),
+                    }
                 }
                 yield f"data: {json.dumps(response_data)}\n\n"
+    response_data = {
+        "progress": {
+            "currentStep": 2,
+            "totalStep": 2,
+            "stepName": "Classifying",
+            "stepProgress": 1,
+        }
+    }
+    yield f"data: {json.dumps(response_data)}\n\n"

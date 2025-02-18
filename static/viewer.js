@@ -1,10 +1,26 @@
 let viewer;
 let objectDetectionResults = [];
 let classificationResults = [];
+let classificationProgress = null;
+let objectDetectionProgress = null;
 
-const RESULTS_TYPE = {OBJECT_DETECTION: "object-detection", CLASSIFICATION: "classification"}
-let activeResults = RESULTS_TYPE.OBJECT_DETECTION;
+const TAB_ENUM = {OBJECT_DETECTION: "object-detection", CLASSIFICATION: "classification"}
+let currentTab = TAB_ENUM.OBJECT_DETECTION;
 let RESULTS_TO_SHOW = 5; // Number of results to render initially
+
+function getTabData() {
+    if (currentTab === TAB_ENUM.OBJECT_DETECTION) {
+        return {
+            results: objectDetectionResults,
+            progress: objectDetectionProgress
+        }
+    } else {
+        return {
+            results: classificationResults,
+            progress: classificationProgress
+        }
+    }
+}
 
 function initializeViewer(slideName, metadata) {
     return OpenSeadragon({
@@ -71,7 +87,7 @@ function addPatchOverlay(location, boxes) {
 }
 
 function startStreaming(method, slideName) {
-    changeResults(method);
+    changeTab(method);
     const eventSource = new EventSource(`/stream/${method}/${slideName}`);
     eventSource.onmessage = event => handleStreamData(event, method);
     eventSource.onerror = () => eventSource.close();
@@ -79,17 +95,21 @@ function startStreaming(method, slideName) {
 
 function handleStreamData(event, method) {
     try {
-        const data = JSON.parse(event.data);
-        let results;
-        if (method === RESULTS_TYPE.OBJECT_DETECTION)
-            results = objectDetectionResults
-        else
-            results = classificationResults;
-        results.push({
-            ...data,
-            renderedOverlayRect: null,
-        });
-        results.sort((a, b) => b.confidence - a.confidence);
+        const streamData = JSON.parse(event.data);
+        if (streamData.region) {
+            let results;
+            if (method === TAB_ENUM.OBJECT_DETECTION)
+                results = objectDetectionResults
+            else
+                results = classificationResults;
+            results.push({
+                ...streamData.region,
+                renderedOverlayRect: null,
+            });
+            results.sort((a, b) => b.confidence - a.confidence);
+        }
+        if (streamData.progress)
+            updateProgress(method, streamData.progress)
         renderResults();
     } catch (error) {
         console.error('Error processing streamed data:', error);
@@ -99,7 +119,7 @@ function handleStreamData(event, method) {
 function renderResults() {
     const container = document.getElementById('results-container');
     container.innerHTML = '';
-    const results = activeResults === RESULTS_TYPE.OBJECT_DETECTION ? objectDetectionResults : classificationResults;
+    const results = getTabData().results;
     results.forEach((data, index) => {
         if (!data.renderedOverlayRect)
             data.renderedOverlayRect = addPatchOverlay(data.location, data.boxes)
@@ -114,16 +134,43 @@ function renderResults() {
     })
 }
 
-function changeResults(newResults) {
-    activeResults = newResults;
+function changeTab(newTab) {
+    currentTab = newTab;
     clearOverlays();
     renderResults();
+    let showProgress = getTabData().progress == null;
+    const progressContainer = document.getElementById("progress-container");
+    progressContainer.style.display = showProgress ? "none" : "flex";
 }
 
 function clearOverlays() {
-    const results = activeResults === RESULTS_TYPE.OBJECT_DETECTION ? objectDetectionResults : classificationResults;
+    const results = getTabData().results
     viewer.clearOverlays();
     results.forEach(data => data.renderedOverlayRect = null);
+}
+
+function updateProgress(method, progressData) {
+    if (method === TAB_ENUM.OBJECT_DETECTION)
+        objectDetectionProgress = progressData;
+    else
+        classificationProgress = progressData;
+
+    const progressBar = document.getElementById("progress-bar");
+    const progressText = document.getElementById("progress-text");
+    const currentStep = progressData.currentStep;
+    const totalSteps = progressData.totalStep;
+    const stepName = progressData.stepName;
+    const stepProgress = progressData.stepProgress;
+
+    const progressPercent = Math.round(stepProgress * 100);
+    // Update the UI
+    progressBar.style.width = progressPercent + "%";
+    progressBar.textContent = progressPercent + "%";
+    progressText.textContent = `(${currentStep}/${totalSteps}) ${stepName}: (${progressPercent}%)`;
+
+    let showProgress = getTabData().progress == null;
+    const progressContainer = document.getElementById("progress-container");
+    progressContainer.style.display = showProgress ? "none" : "flex";
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -131,9 +178,9 @@ document.addEventListener('DOMContentLoaded', () => {
     viewer = initializeViewer(metadata.slideName, metadata);
     const container = document.getElementById('results-container');
 
-    document.getElementById('object-detection').onclick = () => startStreaming(RESULTS_TYPE.OBJECT_DETECTION, metadata.slideName);
-    document.getElementById('classification').onclick = () => startStreaming(RESULTS_TYPE.CLASSIFICATION, metadata.slideName);
-    document.getElementById('toggle-results').onclick = () => changeResults(activeResults === RESULTS_TYPE.OBJECT_DETECTION ? RESULTS_TYPE.CLASSIFICATION : RESULTS_TYPE.OBJECT_DETECTION);
+    document.getElementById('object-detection').onclick = () => startStreaming(TAB_ENUM.OBJECT_DETECTION, metadata.slideName);
+    document.getElementById('classification').onclick = () => startStreaming(TAB_ENUM.CLASSIFICATION, metadata.slideName);
+    document.getElementById('toggle-results').onclick = () => changeTab(currentTab === TAB_ENUM.OBJECT_DETECTION ? TAB_ENUM.CLASSIFICATION : TAB_ENUM.OBJECT_DETECTION);
 
     container.addEventListener('scroll', () => {
         if (container.scrollTop + container.clientHeight >= container.scrollHeight - 50) {
