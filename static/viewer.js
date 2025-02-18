@@ -3,6 +3,7 @@ let objectDetectionResults = [];
 let classificationResults = [];
 let classificationProgress = null;
 let objectDetectionProgress = null;
+let RESULTS_TO_SHOW = 5; // Number of results to render initially
 
 const TAB_ENUM = {OBJECT_DETECTION: "object-detection", CLASSIFICATION: "classification"};
 const TAB_TO_TITLE = {
@@ -43,6 +44,16 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("tab-classification").onclick = () => changeTab(TAB_ENUM.CLASSIFICATION);
     document.getElementById("object-detection").onclick = () => startStreaming(TAB_ENUM.OBJECT_DETECTION, metadata.slideName);
     document.getElementById("classification").onclick = () => startStreaming(TAB_ENUM.CLASSIFICATION, metadata.slideName);
+    const container = document.getElementById("results-container")
+    container.addEventListener('scroll', () => {
+        if (container.scrollTop + container.clientHeight >= container.scrollHeight - 50) {
+            RESULTS_TO_SHOW += 5;
+            renderResults();
+        } else if (container.scrollTop === 0) {
+            RESULTS_TO_SHOW = 5;
+            renderResults();
+        }
+    });
     changeTab(currentTab);
     renderResults();
 });
@@ -54,6 +65,55 @@ function changeTab(newTab) {
     document.getElementById("results-title").textContent = `${TAB_TO_TITLE[currentTab]} Results`;
     clearOverlays();
     renderResults();
+
+    const progressContainer = document.getElementById("progress-container");
+    progressContainer.style.display = !!getTabData().progress ? "flex" : "none";
+}
+
+function addPatchOverlay(location, boxes) {
+    const [absx, absy, width, height] = location;
+    const patchOverlay = getViewportRect(absx, absy, width, height, window.slideMetadata.width, window.slideMetadata.height);
+    const container = document.createElement('div');
+    container.className = 'patch-overlay-container';
+
+    const patchOutline = document.createElement('div');
+    patchOutline.className = 'highlight-overlay';
+    if (boxes)
+        patchOutline.style.border = '2px solid green';
+    else
+        patchOutline.style.border = '4px solid red';
+    patchOutline.style.width = '100%';
+    patchOutline.style.height = '100%';
+    container.appendChild(patchOutline);
+
+    boxes?.forEach(box => {
+        const boxElement = document.createElement('div');
+        boxElement.className = 'yolo-box-overlay';
+        boxElement.style.position = 'absolute';
+        boxElement.style.border = '2px solid red';
+        boxElement.style.background = 'rgba(255, 0, 0, 0.1)';
+
+        boxElement.style.left = `${box.x1 * 100}%`;
+        boxElement.style.top = `${box.y1 * 100}%`;
+        boxElement.style.width = `${(box.x2 - box.x1) * 100}%`;
+        boxElement.style.height = `${(box.y2 - box.y1) * 100}%`;
+
+        container.appendChild(boxElement);
+    });
+
+    viewer.addOverlay(container, patchOverlay, OpenSeadragon.OverlayPlacement.TOP_LEFT);
+    return patchOverlay;
+}
+
+function getViewportRect(x, y, w, h, full_w, full_h) {
+    const aspectRatio = full_w / full_h;
+    const bbox = {
+        x: x / full_w,
+        y: (y / (full_h * aspectRatio)),
+        w: w / full_w,
+        h: (h / (full_h * aspectRatio))
+    };
+    return new OpenSeadragon.Rect(bbox.x, bbox.y, bbox.w, bbox.h);
 }
 
 function renderResults() {
@@ -73,13 +133,20 @@ function renderResults() {
         }
     } else {
         emptyMessage.style.display = "none";
-        results.forEach(data => {
+        results.forEach((data, index) => {
+            if (!data.renderedOverlayRect)
+                data.renderedOverlayRect = addPatchOverlay(data.location, data.boxes)
+            if (index > RESULTS_TO_SHOW)
+                return;
             const entry = document.createElement("div");
             entry.className = "result-entry";
             entry.innerHTML = `<img src='data:image/png;base64,${data.image}' class='result-image'>
                                <p>Confidence: ${data.confidence.toFixed(2)}</p>`;
             container.appendChild(entry);
-        });
+        })
+        // results.slice(0, RESULTS_TO_SHOW).forEach(data => {
+        //
+        // });
     }
 }
 
@@ -126,6 +193,7 @@ function handleStreamData(event, method) {
         if (streamData.region) {
             const results = method === TAB_ENUM.OBJECT_DETECTION ? objectDetectionResults : classificationResults;
             results.push({...streamData.region});
+            results.sort((a, b) => b.confidence - a.confidence);
         }
         if (streamData.progress)
             updateProgress(method, streamData.progress)

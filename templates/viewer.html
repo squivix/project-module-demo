@@ -15,6 +15,62 @@
     </script>
     <script src="{{ url_for('static', filename='viewer.js') }}"></script>
     <style>
+        /* http://meyerweb.com/eric/tools/css/reset/
+   v2.0 | 20110126
+   License: none (public domain)
+*/
+
+        html, body, div, span, applet, object, iframe,
+        h1, h2, h3, h4, h5, h6, p, blockquote, pre,
+        a, abbr, acronym, address, big, cite, code,
+        del, dfn, em, img, ins, kbd, q, s, samp,
+        small, strike, strong, sub, sup, tt, var,
+        b, u, i, center,
+        dl, dt, dd, ol, ul, li,
+        fieldset, form, label, legend,
+        table, caption, tbody, tfoot, thead, tr, th, td,
+        article, aside, canvas, details, embed,
+        figure, figcaption, footer, header, hgroup,
+        menu, nav, output, ruby, section, summary,
+        time, mark, audio, video {
+            margin: 0;
+            padding: 0;
+            border: 0;
+            font-size: 100%;
+            font: inherit;
+            vertical-align: baseline;
+        }
+
+        /* HTML5 display-role reset for older browsers */
+        article, aside, details, figcaption, figure,
+        footer, header, hgroup, menu, nav, section {
+            display: block;
+        }
+
+        body {
+            line-height: 1;
+        }
+
+        ol, ul {
+            list-style: none;
+        }
+
+        blockquote, q {
+            quotes: none;
+        }
+
+        blockquote:before, blockquote:after,
+        q:before, q:after {
+            content: '';
+            content: none;
+        }
+
+        table {
+            border-collapse: collapse;
+            border-spacing: 0;
+        }
+    </style>
+    <style>
         body {
             font-family: sans-serif;
             margin: 1rem 2rem;
@@ -28,7 +84,7 @@
         }
 
         .results-container {
-            min-width: 300px;
+            width: 300px;
             overflow-y: auto;
             max-height: 70vh;
             background: #fff;
@@ -38,6 +94,33 @@
             row-gap: 1rem;
             flex-grow: 1;
         }
+
+        h1 {
+            font-size: 2rem;
+        }
+
+        h3 {
+            font-size: 1.5rem;
+        }
+
+        main {
+            display: flex;
+            flex-direction: column;
+            row-gap: 1rem;
+        }
+
+        #main-content-wrapper {
+            display: flex;
+            column-gap: 1rem;
+        }
+
+        header {
+            display: flex;
+            text-align: center;
+            margin: 20px 0 10px 0;
+            column-gap: 1rem;
+        }
+
 
         .tabs {
             display: flex;
@@ -53,6 +136,20 @@
             border: none;
             cursor: pointer;
         }
+
+        .result-entry {
+            display: flex;
+            flex-direction: column;
+            row-gap: 0.2rem;
+            cursor: pointer;
+        }
+
+        .result-image {
+            max-width: 100%;
+            border: 1px solid #ccc;
+            margin-bottom: 5px;
+        }
+
 
         .tab-button.active {
             background: #0056b3;
@@ -101,21 +198,14 @@
             font-weight: bold;
         }
 
-        a {
-            display: inline-block;
-            margin-bottom: 10px;
+        #back-link {
+            display: grid;
+            place-items: center;
             text-decoration: none;
-            font-size: 16px;
             color: #007bff;
             border: 1px solid #007bff;
-            padding: 8px 12px;
+            padding: 0.5rem;
             border-radius: 5px;
-            transition: all 0.3s ease;
-        }
-
-        a:hover {
-            background: #007bff;
-            color: white;
         }
 
         button {
@@ -142,19 +232,21 @@
         #empty-message {
             display: flex;
             flex-direction: column;
+            row-gap: 0.25rem;
             align-items: center;
             justify-content: center;
-
             flex-grow: 1;
         }
     </style>
 </head>
 <body>
 <header>
-    <a href="/">Back to Slide List</a>
+    <a id="back-link" href="/">
+        <img src="{{ url_for('static', filename='icons/back.svg') }}" width="24px" height="24px" alt="back button">
+    </a>
+    <h1>Slide {{ slide_name }}</h1>
 </header>
 <main>
-    <h1>Slide {{ slide_name }}</h1>
     <div id="main-content-wrapper">
         <div id="openseadragon"></div>
         <div id="results-wrapper">
