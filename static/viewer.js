@@ -1,21 +1,23 @@
-// viewer.js
 let viewer;
+let objectDetectionResults = [];
+let classificationResults = [];
 
-function initializeViewer(slideName, height, width, tileSize, levels) {
+const RESULTS_TYPE = {OBJECT_DETECTION: "object-detection", CLASSIFICATION: "classification"}
+let activeResults = RESULTS_TYPE.OBJECT_DETECTION;
+let RESULTS_TO_SHOW = 5; // Number of results to render initially
+
+function initializeViewer(slideName, metadata) {
     return OpenSeadragon({
         id: "openseadragon",
         prefixUrl: "https://cdnjs.cloudflare.com/ajax/libs/openseadragon/2.4.2/images/",
         tileSources: {
-            width: width,
-            height: height,
-            tileWidth: tileSize,
-            tileHeight: tileSize,
+            width: metadata.width,
+            height: metadata.height,
+            tileWidth: metadata.tileSize,
+            tileHeight: metadata.tileSize,
             minLevel: 0,
-            maxLevel: levels - 1,
-            getTileUrl: function(level, x, y) {
-                return `/tile/${slideName}?z=${level}&x=${x}&y=${y}`;
-            },
-            overlays: [] 
+            maxLevel: metadata.levels - 1,
+            getTileUrl: (level, x, y) => `/tile/${slideName}?z=${level}&x=${x}&y=${y}`
         },
         showNavigator: true,
         navigatorPosition: "BOTTOM_RIGHT"
@@ -34,133 +36,109 @@ function getViewportRect(x, y, w, h, full_w, full_h) {
 }
 
 function addPatchOverlay(location, boxes) {
-    const patchSize = 640;
-    const absx = location[0];
-    const absy = location[1];
-
-    // Create patch overlay
-    const patchOverlay = getViewportRect(
-        absx, 
-        absy, 
-        patchSize, 
-        patchSize, 
-        window.slideMetadata.width, 
-        window.slideMetadata.height
-    );
-
+    const [absx, absy, width, height] = location;
+    const patchOverlay = getViewportRect(absx, absy, width, height, window.slideMetadata.width, window.slideMetadata.height);
     const container = document.createElement('div');
     container.className = 'patch-overlay-container';
-    container.style.position = 'absolute';
-    container.style.width = '100%';
-    container.style.height = '100%';
 
     const patchOutline = document.createElement('div');
     patchOutline.className = 'highlight-overlay';
-    patchOutline.style.border = '2px solid green';
-    patchOutline.style.background = 'rgba(0, 255, 0, 0)';
-    patchOutline.style.position = 'absolute';
+    if (boxes)
+        patchOutline.style.border = '2px solid green';
+    else
+        patchOutline.style.border = '4px solid red';
     patchOutline.style.width = '100%';
     patchOutline.style.height = '100%';
     container.appendChild(patchOutline);
 
-    if (boxes && boxes.length > 0) {
-        boxes.forEach(box => {
-            const boxElement = document.createElement('div');
-            boxElement.className = 'yolo-box-overlay';
-            boxElement.style.position = 'absolute';
-            boxElement.style.border = '2px solid red';
-            boxElement.style.background = 'rgba(255, 0, 0, 0.1)';
-            
-            boxElement.style.left = `${box.x1 * 100}%`;
-            boxElement.style.top = `${box.y1 * 100}%`;
-            boxElement.style.width = `${(box.x2 - box.x1) * 100}%`;
-            boxElement.style.height = `${(box.y2 - box.y1) * 100}%`;
+    boxes?.forEach(box => {
+        const boxElement = document.createElement('div');
+        boxElement.className = 'yolo-box-overlay';
+        boxElement.style.position = 'absolute';
+        boxElement.style.border = '2px solid red';
+        boxElement.style.background = 'rgba(255, 0, 0, 0.1)';
 
-            container.appendChild(boxElement);
-        });
-    }
+        boxElement.style.left = `${box.x1 * 100}%`;
+        boxElement.style.top = `${box.y1 * 100}%`;
+        boxElement.style.width = `${(box.x2 - box.x1) * 100}%`;
+        boxElement.style.height = `${(box.y2 - box.y1) * 100}%`;
+
+        container.appendChild(boxElement);
+    });
 
     viewer.addOverlay(container, patchOverlay, OpenSeadragon.OverlayPlacement.TOP_LEFT);
     return patchOverlay;
 }
 
-function handleObjectDetection(slideName) {
-    let resultsContainer = document.getElementById('detection-results');
-    if (!resultsContainer) {
-        resultsContainer = document.createElement('div');
-        resultsContainer.id = 'detection-results';
-        resultsContainer.style.cssText = 'position: fixed; right: 0; top: 0; width: 300px; height: 100vh; overflow-y: auto; background: white; padding: 10px; border-left: 1px solid #ccc;';
-        document.body.appendChild(resultsContainer);
+function startStreaming(method, slideName) {
+    changeResults(method);
+    const eventSource = new EventSource(`/stream/${method}/${slideName}`);
+    eventSource.onmessage = event => handleStreamData(event, method);
+    eventSource.onerror = () => eventSource.close();
+}
+
+function handleStreamData(event, method) {
+    try {
+        const data = JSON.parse(event.data);
+        let results;
+        if (method === RESULTS_TYPE.OBJECT_DETECTION)
+            results = objectDetectionResults
+        else
+            results = classificationResults;
+        results.push({
+            ...data,
+            renderedOverlayRect: null,
+        });
+        results.sort((a, b) => b.confidence - a.confidence);
+        renderResults();
+    } catch (error) {
+        console.error('Error processing streamed data:', error);
     }
+}
 
-    // Clear previous results and overlays
-    resultsContainer.innerHTML = '<h3>Detection Results</h3>';
-
-    const eventSource = new EventSource(`/object-detection/${slideName}`);
-
-    eventSource.onmessage = function(event) {
-        try {
-            const data = JSON.parse(event.data);
-
-            // Create new image element
-            const imgContainer = document.createElement('div');
-            imgContainer.style.marginBottom = '10px';
-            imgContainer.style.cursor = 'pointer';
-
-            const img = document.createElement('img');
-            img.src = `data:image/png;base64,${data.image}`;
-            img.style.width = '100%';
-
-            const location = document.createElement('p');
-            location.textContent = `Location: (${data.location[0]}, ${data.location[1]})`;
-            const overlayRect = addPatchOverlay(data.location, data.boxes);
-
-            imgContainer.onclick = () => {
-                const bounds = new OpenSeadragon.Rect(
-                    overlayRect.x,
-                    overlayRect.y,
-                    overlayRect.width,
-                    overlayRect.height
-                );
-                viewer.viewport.fitBounds(bounds);
-            };
-
-            imgContainer.appendChild(img);
-            imgContainer.appendChild(location);
-            resultsContainer.appendChild(imgContainer);
-
-            const isAtBottom = resultsContainer.scrollHeight - resultsContainer.scrollTop - resultsContainer.clientHeight < 50;
-            if (isAtBottom) {
-                resultsContainer.scrollTop = resultsContainer.scrollHeight;
-            }
-        } catch (error) {
-            console.error('Error processing message:', error);
-            addErrorMessage(resultsContainer, 'Error processing detection result');
+function renderResults() {
+    const container = document.getElementById('results-container');
+    container.innerHTML = '';
+    const results = activeResults === RESULTS_TYPE.OBJECT_DETECTION ? objectDetectionResults : classificationResults;
+    results.forEach((data, index) => {
+        if (!data.renderedOverlayRect)
+            data.renderedOverlayRect = addPatchOverlay(data.location, data.boxes)
+        if (index <= RESULTS_TO_SHOW) {
+            const entry = document.createElement('div');
+            entry.className = 'result-entry';
+            entry.innerHTML = `<img src='data:image/png;base64,${data.image}' class='result-image'>
+                           <p>Confidence: ${data.confidence.toFixed(2)}</p>`;
+            entry.onclick = () => viewer.viewport.fitBounds(data.renderedOverlayRect);
+            container.appendChild(entry);
         }
-    };
-
-    eventSource.onerror = function(error) {
-        console.error('SSE Error:', error);
-        eventSource.close();
-        addErrorMessage(resultsContainer, 'Detection process interrupted');
-    };
+    })
 }
 
-function addErrorMessage(container, message) {
-    const errorDiv = document.createElement('div');
-    errorDiv.style.cssText = 'background-color: #ffebee; color: #c62828; padding: 10px; margin: 10px 0; border-radius: 4px;';
-    errorDiv.textContent = message;
-    container.appendChild(errorDiv);
+function changeResults(newResults) {
+    activeResults = newResults;
+    clearOverlays();
+    renderResults();
 }
 
-// Initialize viewer when the script loads
-document.addEventListener('DOMContentLoaded', function() {
+function clearOverlays() {
+    const results = activeResults === RESULTS_TYPE.OBJECT_DETECTION ? objectDetectionResults : classificationResults;
+    viewer.clearOverlays();
+    results.forEach(data => data.renderedOverlayRect = null);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
     const metadata = window.slideMetadata;
-    viewer = initializeViewer(
-        metadata.slideName,
-        metadata.height,
-        metadata.width,
-        metadata.tileSize,
-        metadata.levels
-    );
+    viewer = initializeViewer(metadata.slideName, metadata);
+    const container = document.getElementById('results-container');
+
+    document.getElementById('object-detection').onclick = () => startStreaming(RESULTS_TYPE.OBJECT_DETECTION, metadata.slideName);
+    document.getElementById('classification').onclick = () => startStreaming(RESULTS_TYPE.CLASSIFICATION, metadata.slideName);
+    document.getElementById('toggle-results').onclick = () => changeResults(activeResults === RESULTS_TYPE.OBJECT_DETECTION ? RESULTS_TYPE.CLASSIFICATION : RESULTS_TYPE.OBJECT_DETECTION);
+
+    container.addEventListener('scroll', () => {
+        if (container.scrollTop + container.clientHeight >= container.scrollHeight - 50) {
+            RESULTS_TO_SHOW += 5;
+            renderResults();
+        }
+    });
 });

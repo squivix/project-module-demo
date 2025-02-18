@@ -3,8 +3,9 @@
 <head>
     <title>Viewing {{ slide_name }}</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/openseadragon/2.4.2/openseadragon.min.js"></script>
+    <script src="https://unpkg.com/heap-js"></script>
+
     <script>
-        // Pass metadata to be used in viewer.js
         window.slideMetadata = {
             slideName: "{{ slide_name }}",
             height: {{ height }},
@@ -15,36 +16,50 @@
     </script>
     <script src="{{ url_for('static', filename='viewer.js') }}"></script>
     <style>
-        #detection-results img {
+        #openseadragon {
+            width: 90vw;
+            height: 80vh;
+            margin: auto;
+            border: 1px solid #ccc;
+        }
+
+        .results-container {
+            position: fixed;
+            right: 10px;
+            top: 50px;
+            width: 300px;
+            height: 80vh;
+            overflow-y: auto;
+            background: #fff;
+            padding: 10px;
+            border-left: 1px solid #ccc;
+        }
+
+        .result-image {
             max-width: 100%;
             border: 1px solid #ccc;
             margin-bottom: 5px;
         }
 
-        #detection-results p {
-            margin: 0 0 15px 0;
-            font-size: 12px;
-            color: #666;
+        .result-entry {
+            margin-bottom: 15px;
+            cursor: pointer;
+        }
+
+        #toggle-results {
+            margin-top: 10px;
         }
     </style>
 </head>
 <body>
 <h1>Viewing Slide: {{ slide_name }}</h1>
-<div style="margin: 10px 0;">
+<div>
     <a href="/">Back to Slide List</a>
-    <button id="object-detection" onclick="handleObjectDetection('{{ slide_name }}')" style="margin-left: 20px;">Object
-        Detection
-    </button>
-    <button id="classification" onclick="handleClassification('{{ slide_name }}')" style="margin-left: 20px;">
-        Classification
-    </button>
-
-    <!-- Toggle Buttons -->
-    <div style="margin-top: 10px;">
-        <button onclick="showResults('detection-results')">Show Detection</button>
-        <button onclick="showResults('classification-results')">Show Classification</button>
-    </div>
+    <button id="object-detection">Start Object Detection</button>
+    <button id="classification">Start Classification</button>
+    <button id="toggle-results">Toggle Results</button>
 </div>
-<div id="openseadragon" style="width: 1920px; height: 1080px; margin:auto;"></div>
+<div id="openseadragon"></div>
+<div id="results-container" class="results-container"></div>
 </body>
 </html>

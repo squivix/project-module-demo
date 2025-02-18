@@ -96,8 +96,9 @@ def process_slide(slide_path):
                     img_str = base64.b64encode(buffered.getvalue()).decode()
                     response_data = {
                         'image': img_str,
-                        'location': list(location[::-1]),
-                        'boxes': boxes_data
+                        'location': list(location[::-1]) + [patch_size, patch_size],
+                        'boxes': boxes_data,
+                        "confidence": 0.0,
                     }
 
                     yield f"data: {json.dumps(response_data)}\n\n"
