@@ -139,14 +139,12 @@ function renderResults() {
             if (index > RESULTS_TO_SHOW)
                 return;
             const entry = document.createElement("div");
+            entry.onclick = () => viewer.viewport.fitBounds(data.renderedOverlayRect);
             entry.className = "result-entry";
             entry.innerHTML = `<img src='data:image/png;base64,${data.image}' class='result-image'>
                                <p>Confidence: ${data.confidence.toFixed(2)}</p>`;
             container.appendChild(entry);
         })
-        // results.slice(0, RESULTS_TO_SHOW).forEach(data => {
-        //
-        // });
     }
 }
 

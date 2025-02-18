@@ -15,7 +15,7 @@ model = None
 def load_yolo_model():
     global model
     if model is None:
-        model_path = "best.pt"
+        model_path = "object_detection/saved-models/best.pt"
         model = YOLO(model_path)
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
         model.to(device)
